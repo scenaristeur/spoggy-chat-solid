@@ -17,17 +17,20 @@
   <button onclick="login()">Login</button>
   <button onclick="logout()">Logout</button>
 
-  <button onclick="testWebSocket()">Activer</button>
+  <!--<button onclick="testWebSocket()">Activer</button>-->
   <br>
-  <textarea id="notification" name="notification" rows="5"  style="width:90%">
+  <textarea id="content" name="content" rows="10"  style="width:90%">
   </textarea>
   <br>
-
+  <br>
   <input id="subject" placeholder="Subject"\>
   <input id="property"placeholder="property"\>
   <input id="object" placeholder="Object"\>
   <button onclick="sendData()">Send</button>
 
+  <br>
+  <textarea id="notification" name="notification" rows="5"  style="width:90%">
+  </textarea>
 
 
 </body>
@@ -61,7 +64,7 @@ const updater = new $rdf.UpdateManager(store)
 function init(){
   checkSession();
   initWorkspace();
-  //  initFile()
+  testWebSocket();
   //  ldflexTest();
   //testFetcher();
 }
@@ -80,8 +83,8 @@ function sendData(){
     console.log(`File content is : ${body}.`);
     document.getElementById("whiteboardUrl").innerHTML = whiteboardUrl;
     var date = Date.now();
-    var data = body+"agora:"+s+" agora:"+p+" agora:"+o+" "+date+".\n";
-
+    var data = body+"agora:"+s+" agora:"+p+" agora:"+o+" .\n";
+    updateContent(body)
     console.log(data)
     var dataType = "text/turtle"
 
@@ -138,14 +141,27 @@ function initWorkspace(){
     body = body;
     console.log(`File content is : ${body}.`);
     document.getElementById("whiteboardUrl").innerHTML = whiteboardUrl;
+    updateContent(body)
     //  trackChanges();
   }, err => {
-    var newContent = "@prefix agora: <> . \n\n"+
-    //  "@base <"+whiteboardUrl+"> . \n\n"+
-    "agora:test agora:type agora:bidule . \n"
+
+    /*"@prefix : <http://smag0.blogspot.fr/spoggy#> . \n"+
+    "@prefix owl: <http://www.w3.org/2002/07/owl#> . \n"+
+    "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> . \n"+
+    "@prefix xml: <http://www.w3.org/XML/1998/namespace> . \n"+
+    "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> . \n"+
+    "@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> . \n"+*/
+    var newContent = "@prefix agora: <"+whiteboardUrl+"#> . \n"+
+    "@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> . \n"+
+    "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> . \n"+
+    "@prefix owl: <http://www.w3.org/2002/07/owl#> . \n"+
+    "@base <"+whiteboardUrl+"> . \n\n"+
+    "<> rdf:type agora:AgoraChat . \n"+
+    '<> owl:seeAlso "https://github.com/scenaristeur/spoggy-chat-solid" . \n'
 
     fileClient.updateFile( whiteboardUrl, newContent ).then( success => {
       console.log( 'updated',whiteboardUrl)
+      updateContent(newContent)
       document.getElementById("whiteboardUrl").innerHTML = whiteboardUrl;
     }
     /*  fileClient.createFile(whiteboardUrl).then( fileCreated => {
@@ -185,6 +201,16 @@ function testWebSocket(){
       console.log("msg",msg);
       console.log("data",msg.data)
       document.getElementById("notification").value = now+"[notification] "+msg.data+"\n"+document.getElementById("notification").value;
+      fileClient.readFile(whiteboardUrl).then(  body => {
+        body = body;
+      //  console.log(`File content is : ${body}.`);
+        document.getElementById("whiteboardUrl").innerHTML = whiteboardUrl;
+        updateContent(body)
+        //  trackChanges();
+      }, err => {
+        console.log(err)
+      }
+    )
 
     }
     else{console.log("message inconnu",msg)}
@@ -212,7 +238,7 @@ function sendData1(){
   var s = document.getElementById("subject").value;
   var p = document.getElementById("property").value;
   var o = document.getElementById("object").value;
-  console.log(s,p,o)
+//  console.log(s,p,o)
 
   //https://forum.solidproject.org/t/my-first-app-adding-resources/275/15
 
@@ -254,29 +280,17 @@ function createOrReplaceFile(url, data, dataType, cb) {
   })
   .then(function(response) {
     // Some tasks
-  //  console.log("response",response)
+    //  console.log("response",response)
     return cb(response);
   });
 };
 
-function initFile(){
-
-  /*"@prefix : <http://smag0.blogspot.fr/spoggy#> . \n"+
-  "@prefix owl: <http://www.w3.org/2002/07/owl#> . \n"+
-  "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> . \n"+
-  "@prefix xml: <http://www.w3.org/XML/1998/namespace> . \n"+
-  "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> . \n"+
-  "@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> . \n"+*/
-  var newContent = "@prefix agora: <"+whiteboardUrl+"#> . \n"+
-  "@base <"+whiteboardUrl+"> . \n"+
-  "agora:test agora:type agora:bidule . \n"
-
-
-
-  fileClient.updateFile( whiteboardUrl, newContent ).then( success => {
-    console.log( 'updated',whiteboardUrl)
-  }, err => console.log(err) );
+function updateContent(body){
+//  console.log("UPDATE CONTENT",body)
+  document.getElementById("content").value = body;
 }
+
+
 
 
 /*fetcher.load(whiteboardUrl).then(resp => {
