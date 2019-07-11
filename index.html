@@ -3,13 +3,15 @@
 <head>
 
   <script src="./lib/solid-file-client.bundle.js"></script>
+  <script src="./lib/rdflib.min.js"></script>
+
 
 </head>
 
 <body onload="init()">
   webId : <div id="webId"></div>
   Chat Url : <div id="chatUrl"></div>
-  WhiteBoard Url : <div id="whiteBoardUrl"></div>
+  WhiteBoard Url : <div id="whiteboardUrl"></div>
 
   <br>
   <button onclick="login()">Login</button>
@@ -21,29 +23,82 @@
   </textarea>
   <br>
 
-<input id="subject" placeholder="Subject"\>
-<input id="property"placeholder="property"\>
-<input id="object" placeholder="Object"\>
-<button onclick="sendData()">Send</button>
+  <input id="subject" placeholder="Subject"\>
+  <input id="property"placeholder="property"\>
+  <input id="object" placeholder="Object"\>
+  <button onclick="sendData()">Send</button>
 
 
 
 </body>
 
 <script>
+console.log("rdf",$rdf)
+
+
 const fileClient = SolidFileClient;
 console.log(fileClient);
 var webId = "";
 var rootUrl = "agora.solid.community/"
 var chatUrl = "https://"+rootUrl+"public/";
-var whiteboardUrl =""
+var whiteboardUrl ="";
+var body = "";
+
+const VCARD = new $rdf.Namespace('http://www.w3.org/2006/vcard/ns#');
+const FOAF = new $rdf.Namespace('http://xmlns.com/foaf/0.1/');
+var RDF = new $rdf.Namespace("http://www.w3.org/1999/02/22-rdf-syntax-ns#")
+var RDFS = new $rdf.Namespace("http://www.w3.org/2000/01/rdf-schema#")
+var XSD = new $rdf.Namespace("http://www.w3.org/2001/XMLSchema#")
+
+
+const store = $rdf.graph()
+const fetcher = new $rdf.Fetcher(store)
+const updater = new $rdf.UpdateManager(store)
+
 
 
 
 function init(){
   checkSession();
   initWorkspace();
+  //  initFile()
+  //  ldflexTest();
+  //testFetcher();
 }
+
+function sendData(){
+  var s = document.getElementById("subject").value.trim();
+  var p = document.getElementById("property").value.trim();
+  var o = document.getElementById("object").value.trim();
+  document.getElementById("subject").value = ""
+  document.getElementById("property").value = ""
+  document.getElementById("object").value = ""
+
+  console.log(s,p,o)
+  fileClient.readFile(whiteboardUrl).then(  body => {
+    body = body;
+    console.log(`File content is : ${body}.`);
+    document.getElementById("whiteboardUrl").innerHTML = whiteboardUrl;
+    var date = Date.now();
+    var data = body+"agora:"+s+" agora:"+p+" agora:"+o+" "+date+".\n";
+
+    console.log(data)
+    var dataType = "text/turtle"
+
+    createOrReplaceFile(whiteboardUrl, data, dataType, function after(end){
+      console.log("after",end)
+    })
+    //  trackChanges();
+  }, err => {
+    console.log("err",err)
+
+  });
+
+
+}
+
+
+
 
 
 function login(){
@@ -77,38 +132,50 @@ function checkSession(){
 }
 
 function initWorkspace(){
+  document.getElementById("notification").value = ""
   whiteboardUrl = chatUrl+"whiteBoard.ttl";
   fileClient.readFile(whiteboardUrl).then(  body => {
+    body = body;
     console.log(`File content is : ${body}.`);
-    document.getElementById("whiteBoardUrl").innerHTML = whiteboardUrl;
+    document.getElementById("whiteboardUrl").innerHTML = whiteboardUrl;
+    //  trackChanges();
   }, err => {
-    fileClient.createFile(whiteboardUrl).then( fileCreated => {
-      console.log(`Created file ${fileCreated}.`);
-      document.getElementById("whiteBoardUrl").innerHTML = whiteboardUrl;
-    }, err => {
-      console.log(err)
-      document.getElementById("whiteBoardUrl").innerHTML = err;
-    } );
-    console.log(err)
-    document.getElementById("whiteBoardUrl").innerHTML = err;
-  });
+    var newContent = "@prefix agora: <> . \n\n"+
+    //  "@base <"+whiteboardUrl+"> . \n\n"+
+    "agora:test agora:type agora:bidule . \n"
+
+    fileClient.updateFile( whiteboardUrl, newContent ).then( success => {
+      console.log( 'updated',whiteboardUrl)
+      document.getElementById("whiteboardUrl").innerHTML = whiteboardUrl;
+    }
+    /*  fileClient.createFile(whiteboardUrl).then( fileCreated => {
+    console.log(`Created file ${fileCreated}.`);
+    document.getElementById("whiteboardUrl").innerHTML = whiteboardUrl;
+    //  trackChanges();
+  }*/, err => {
+  console.log(err)
+  document.getElementById("whiteboardUrl").innerHTML = err;
+} );
+console.log(err)
+document.getElementById("whiteboardUrl").innerHTML = err;
+});
 }
 
 
 function testWebSocket(){
-var socket = new WebSocket("wss://"+rootUrl);
+  var socket = new WebSocket("wss://"+rootUrl);
   console.log ("socket",socket)
   socket.onopen = function() {
     const d = new Date();
     now = d.toLocaleTimeString('fr-FR') + `.${d.getMilliseconds()}`
-    this.send('sub whiteboardUrl');
-  //  this.send('sub https://spoggy.solid.community/public/test/fichier2.ttl');
-  /*  this.send('sub https://spoggy.solid.community/public/test');
+    this.send('sub '+whiteboardUrl);
+    //  this.send('sub https://spoggy.solid.community/public/test/fichier2.ttl');
+    /*  this.send('sub https://spoggy.solid.community/public/test');
     this.send('sub https://spoggy.solid.community/public/test/index.ttl');*/
     document.getElementById("notification").value = now+"[souscription] "+whiteboardUrl+"\n"+document.getElementById("notification").value;
-  //  document.getElementById("notification").value = now+"[souscription] fichier2.ttl\n"+document.getElementById("notification").value;
+    //  document.getElementById("notification").value = now+"[souscription] fichier2.ttl\n"+document.getElementById("notification").value;
 
-console.log("OPENED SOCKET",socket)
+    console.log("OPENED SOCKET",socket)
   };
   socket.onmessage = function(msg) {
     if (msg.data && msg.data.slice(0, 3) === 'pub') {
@@ -120,17 +187,191 @@ console.log("OPENED SOCKET",socket)
       document.getElementById("notification").value = now+"[notification] "+msg.data+"\n"+document.getElementById("notification").value;
 
     }
+    else{console.log("message inconnu",msg)}
   };
 
 }
 
+function trackChanges(){
+  //https://github.com/linkeddata/rdflib.js/issues/300
+  updater.addDownstreamChangeListener(whiteboardUrl, refreshFunction)
+}
 
-function sendData(){
+
+function refreshFunction(){
+  var st = store.each(null, null, null)
+  st.forEach(function(obj) {
+    //div.appendChild(renderOneObject(obj))
+    console.log("refresh",obj)
+  })
+}
+
+function sendData1(){
+
+
   var s = document.getElementById("subject").value;
   var p = document.getElementById("property").value;
   var o = document.getElementById("object").value;
   console.log(s,p,o)
+
+  //https://forum.solidproject.org/t/my-first-app-adding-resources/275/15
+
+  /*const board = store.fetcher.(whiteboardUrl);
+  console.log("board",board)*/
+  fetcher.load(whiteboardUrl).then(response => {
+    // let name = store.any(me, VCARD(‘fn’));
+    let res = store.any();
+    console.log("res",res);
+    let ins = $rdf.st(whiteboardUrl+'#fn', VCARD('fn'), VCARD('fn'), whiteboardUrl)
+    console.log(ins)
+    store.add(ins)
+    console.log("store",store)
+    /*fetcher.putBack(whiteboardUrl).then(respPut => {
+    console.log("respPut",respPut)
+  },err1 =>{console.log("err put",err1)}
+);*/
+let del = []
+updater.update(del, ins, (whiteboardUrl, ok, message) => {
+  if (ok) console.log('Name changed to ')
+  else alert(message)
+})
+
+}, err => {
+  console.log("Load failed" +  err);
+});
 }
+
+
+function createOrReplaceFile(url, data, dataType, cb) {
+
+  solid.auth.fetch(url, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': dataType,
+      'Link': '<http://www.w3.org/ns/ldp#Resource>; rel="type"',
+    },
+    body: data
+  })
+  .then(function(response) {
+    // Some tasks
+  //  console.log("response",response)
+    return cb(response);
+  });
+};
+
+function initFile(){
+
+  /*"@prefix : <http://smag0.blogspot.fr/spoggy#> . \n"+
+  "@prefix owl: <http://www.w3.org/2002/07/owl#> . \n"+
+  "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> . \n"+
+  "@prefix xml: <http://www.w3.org/XML/1998/namespace> . \n"+
+  "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> . \n"+
+  "@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> . \n"+*/
+  var newContent = "@prefix agora: <"+whiteboardUrl+"#> . \n"+
+  "@base <"+whiteboardUrl+"> . \n"+
+  "agora:test agora:type agora:bidule . \n"
+
+
+
+  fileClient.updateFile( whiteboardUrl, newContent ).then( success => {
+    console.log( 'updated',whiteboardUrl)
+  }, err => console.log(err) );
+}
+
+
+/*fetcher.load(whiteboardUrl).then(resp => {
+console.log("board",resp)
+let ins = $rdf.st(whiteboardUrl, VCARD('fn'), FOAF("dav"), whiteboardUrl)
+console.log(ins)
+store.add(ins)
+console.log(store)
+fetcher.putBack(whiteboardUrl).then(respPut => {
+console.log("respPut",respPut)
+},err1 =>{console.log("err put",err1)}
+);
+},err => {
+console.log("err read",err)
+});
+
+*/
+
+
+/*store.add(whiteboardUrl+'#fn', VCARD('fn'), VCARD('fn'), whiteboardUrl)
+console.log(store)
+fetcher.putBack(whiteboardUrl)*/
+/*let ins = $rdf.st(whiteboardUrl+'#fn', VCARD('fn'), VCARD('fn'), whiteboardUrl)
+console.log(ins)
+let del = []
+updater.update(del, ins, (whiteboardUrl, ok, message) => {
+if (ok) console.log('Name changed to ')
+else alert(message)
+})*/
+/*function setName(person, name, doc) {
+let ins = $rdf.st(person, VCARD('fn'), name, doc)
+let del = []
+updater.update(del, ins, (uri, ok, message) => {
+if (ok) console.log('Name changed to '+ name)
+else alert(message)
+})
+}*/
+
+/*async function run(){
+const doc   = solid.data['https://jeffz.solid.community/public/ldflex.ttl']
+const dtype = solid.data[ 'http://schema.org/Document' ]
+const about = 'http://schema.org/about'
+await login()
+// CREATE
+await doc.type.add(dtype)
+await doc[about].add("some thoughts")
+// READ
+show( await doc.type   )  // expect: http://schema.org/Document
+show( await doc[about] )  // expect: some thoughts
+// UPDATE
+await doc[about].set("thoughts change ...")
+// DELETE
+await doc.type.delete()
+// READ
+show( await doc.type  )   // expect: undefined
+show( await doc[about] )  // expect: thoughts change ...
+}
+*/
+
+//}
+
+
+/*function testFetcher(){
+fetcher.nowOrWhenFetched(whiteboardUrl, function(ok, body, xhr) {
+if (!ok) {
+console.log("Oops, something happened and couldn't fetch data");
+} else {
+console.log("body",body,ok)
+// do something with the data in the store (see below)
+}
+})
+}*/
+
+/*function ldflexTest(){
+async function run(){
+const doc   = solid.data[whiteboardUrl]
+const dtype = solid.data[ 'http://schema.org/Document' ]
+const about = 'http://schema.org/about'
+await login()
+// CREATE
+await doc.type.add(dtype)
+await doc[about].add("some thoughts")
+// READ
+show( await doc.type   )  // expect: http://schema.org/Document
+show( await doc[about] )  // expect: some thoughts
+// UPDATE
+await doc[about].set("thoughts change ...")
+// DELETE
+await doc.type.delete()
+// READ
+show( await doc.type  )   // expect: undefined
+show( await doc[about] )  // expect: thoughts change ...
+}
+}*/
+
 
 </script>
 </html>
