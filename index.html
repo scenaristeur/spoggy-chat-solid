@@ -1,0 +1,136 @@
+<html>
+
+<head>
+
+  <script src="./lib/solid-file-client.bundle.js"></script>
+
+</head>
+
+<body onload="init()">
+  webId : <div id="webId"></div>
+  Chat Url : <div id="chatUrl"></div>
+  WhiteBoard Url : <div id="whiteBoardUrl"></div>
+
+  <br>
+  <button onclick="login()">Login</button>
+  <button onclick="logout()">Logout</button>
+
+  <button onclick="testWebSocket()">Activer</button>
+  <br>
+  <textarea id="notification" name="notification" rows="5"  style="width:90%">
+  </textarea>
+  <br>
+
+<input id="subject" placeholder="Subject"\>
+<input id="property"placeholder="property"\>
+<input id="object" placeholder="Object"\>
+<button onclick="sendData()">Send</button>
+
+
+
+</body>
+
+<script>
+const fileClient = SolidFileClient;
+console.log(fileClient);
+var webId = "";
+var rootUrl = "agora.solid.community/"
+var chatUrl = "https://"+rootUrl+"public/";
+var whiteboardUrl =""
+
+
+
+function init(){
+  checkSession();
+  initWorkspace();
+}
+
+
+function login(){
+  fileClient.popupLogin().then( webId => {
+    updateWebId(webId)
+    console.log( `Logged in as ${webId}.`)
+  }, err => console.log(err) );
+}
+
+function logout(){
+  fileClient.logout().then( lo => {
+    console.log(lo)
+    console.log( `Bye now!` )
+    updateWebId("")
+
+  },err =>console.log(err));
+}
+
+function updateWebId(webId){
+  webId = webId
+  console.log (webId)
+  document.getElementById("webId").innerHTML = webId;
+  document.getElementById("chatUrl").innerHTML = chatUrl;
+}
+
+function checkSession(){
+  fileClient.checkSession().then( session => {
+    updateWebId(session.webId)
+    console.log("Logged in as "+session.webId)
+  }, err => console.log(err) );
+}
+
+function initWorkspace(){
+  whiteboardUrl = chatUrl+"whiteBoard.ttl";
+  fileClient.readFile(whiteboardUrl).then(  body => {
+    console.log(`File content is : ${body}.`);
+    document.getElementById("whiteBoardUrl").innerHTML = whiteboardUrl;
+  }, err => {
+    fileClient.createFile(whiteboardUrl).then( fileCreated => {
+      console.log(`Created file ${fileCreated}.`);
+      document.getElementById("whiteBoardUrl").innerHTML = whiteboardUrl;
+    }, err => {
+      console.log(err)
+      document.getElementById("whiteBoardUrl").innerHTML = err;
+    } );
+    console.log(err)
+    document.getElementById("whiteBoardUrl").innerHTML = err;
+  });
+}
+
+
+function testWebSocket(){
+var socket = new WebSocket("wss://"+rootUrl);
+  console.log ("socket",socket)
+  socket.onopen = function() {
+    const d = new Date();
+    now = d.toLocaleTimeString('fr-FR') + `.${d.getMilliseconds()}`
+    this.send('sub whiteboardUrl');
+  //  this.send('sub https://spoggy.solid.community/public/test/fichier2.ttl');
+  /*  this.send('sub https://spoggy.solid.community/public/test');
+    this.send('sub https://spoggy.solid.community/public/test/index.ttl');*/
+    document.getElementById("notification").value = now+"[souscription] "+whiteboardUrl+"\n"+document.getElementById("notification").value;
+  //  document.getElementById("notification").value = now+"[souscription] fichier2.ttl\n"+document.getElementById("notification").value;
+
+console.log("OPENED SOCKET",socket)
+  };
+  socket.onmessage = function(msg) {
+    if (msg.data && msg.data.slice(0, 3) === 'pub') {
+      // resource updated, refetch resource
+      const d = new Date();
+      now = d.toLocaleTimeString('fr-FR') + `.${d.getMilliseconds()}`
+      console.log("msg",msg);
+      console.log("data",msg.data)
+      document.getElementById("notification").value = now+"[notification] "+msg.data+"\n"+document.getElementById("notification").value;
+
+    }
+  };
+
+}
+
+
+function sendData(){
+  var s = document.getElementById("subject").value;
+  var p = document.getElementById("property").value;
+  var o = document.getElementById("object").value;
+  console.log(s,p,o)
+}
+
+</script>
+</html>
