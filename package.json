@@ -18,6 +18,6 @@
   },
   "homepage": "https://github.com/scenaristeur/spoggy-chat-solid#readme",
   "dependencies": {
-    "express": "^4.17.1"
+    "express": "^4.17.3"
   }
 }
